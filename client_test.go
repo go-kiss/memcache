@@ -3,18 +3,12 @@ package memcache
 import (
 	"bytes"
 	"context"
+	"os"
 	"testing"
-
-	"sniper/util/conf"
 )
 
 func TestClientGet(t *testing.T) {
-	addr := conf.GetString("MC_DEFAULT_HOSTS")
-	c, _ := New(addr, 2, 100)
-
-	if c.pool.Len() != 2 {
-		t.Error("invalid init conns")
-	}
+	c, _ := New(os.Getenv("MC_ADDRESS"), 2, 100)
 
 	c.Set(context.Background(), &Item{Key: "foo", Value: []byte("bar")})
 	item, err := c.Get(context.Background(), "foo")
@@ -28,7 +22,7 @@ func TestClientGet(t *testing.T) {
 }
 
 func BenchmarkClientGet(b *testing.B) {
-	c, _ := New("127.0.0.1:11211", 1, 100)
+	c, _ := New(os.Getenv("MC_ADDRESS"), 1, 100)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

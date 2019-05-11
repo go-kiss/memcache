@@ -2,4 +2,4 @@
 
 simple memcach sdk
 
-	go get git.bilibili.com/go/memcache
+	go get -insecure git.bilibili.com/go/memcache

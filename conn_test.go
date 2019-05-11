@@ -2,14 +2,14 @@ package memcache
 
 import (
 	"net"
-	"sniper/util/conf"
+	"os"
 	"strings"
 	"testing"
 	"time"
 )
 
 func setup(t *testing.T) *Conn {
-	addr := conf.GetString("MC_DEFAULT_HOSTS")
+	addr := os.Getenv("MC_ADDRESS")
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		t.Error(err)
@@ -164,7 +164,7 @@ func testWithClient(t *testing.T, c *Conn) {
 		t.Fatalf("increment non-number: want client error, got %v", err)
 	}
 
-	if conf.GetBool("TEST_MC_TOUCH") {
+	if os.Getenv("TEST_MC_TOUCH") != "" {
 		testTouch(t, c)
 	}
 
