@@ -45,6 +45,11 @@ func (pc *pooledConn) Close() error {
 	return pc.nc.Close()
 }
 
+// PoolStats 返回连接池状态
+func (c *Client) PoolStats() *pool.Stats {
+	return c.pool.Stats()
+}
+
 func (c *Client) do(ctx context.Context, fn func(c *Conn) error) error {
 	mc, err := c.pool.Get(ctx)
 	if err != nil {
