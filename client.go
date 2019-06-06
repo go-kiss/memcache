@@ -45,8 +45,12 @@ func (pc *pooledConn) Close() error {
 	return pc.nc.Close()
 }
 
-func (c *Client) get(ctx context.Context) (*pooledConn, *pool.Conn) {
-	mc, _ := c.pool.Get(ctx)
+func (c *Client) do(ctx context.Context, fn func(c *Conn) error) error {
+	mc, err := c.pool.Get(ctx)
+	if err != nil {
+		return err
+	}
+
 	pc := mc.C.(*pooledConn)
 
 	if d, ok := ctx.Deadline(); ok {
@@ -55,7 +59,10 @@ func (c *Client) get(ctx context.Context) (*pooledConn, *pool.Conn) {
 		pc.nc.SetDeadline(time.Time{})
 	}
 
-	return pc, mc
+	err = fn(pc.c)
+	defer c.put(mc, err)
+
+	return err
 }
 
 func (c *Client) put(pc *pool.Conn, err error) {
@@ -70,102 +77,84 @@ func (c *Client) put(pc *pool.Conn, err error) {
 
 // Add only set new key
 func (c *Client) Add(ctx context.Context, item *Item) error {
-	pc, pc2 := c.get(ctx)
-
-	err := pc.c.Add(item)
-	c.put(pc2, err)
-
-	return err
+	return c.do(ctx, func(c *Conn) error {
+		return c.Add(item)
+	})
 }
 
 // CompareAndSwap cas set
 func (c *Client) CompareAndSwap(ctx context.Context, item *Item) error {
-	pc, pc2 := c.get(ctx)
-
-	err := pc.c.CompareAndSwap(item)
-	c.put(pc2, err)
-
-	return err
+	return c.do(ctx, func(c *Conn) error {
+		return c.CompareAndSwap(item)
+	})
 }
 
 // Decrement decr key
-func (c *Client) Decrement(ctx context.Context, key string, delta uint64) (uint64, error) {
-	pc, pc2 := c.get(ctx)
+func (c *Client) Decrement(ctx context.Context, key string, delta uint64) (d uint64, err error) {
+	err = c.do(ctx, func(c *Conn) error {
+		d, err = c.Decrement(key, delta)
+		return err
+	})
 
-	v, err := pc.c.Decrement(key, delta)
-	c.put(pc2, err)
-
-	return v, err
+	return
 }
 
 // Delete delete key
 func (c *Client) Delete(ctx context.Context, key string) error {
-	pc, pc2 := c.get(ctx)
-
-	err := pc.c.Delete(key)
-	c.put(pc2, err)
-
-	return err
+	return c.do(ctx, func(c *Conn) error {
+		return c.Delete(key)
+	})
 }
 
 // Get get one key
-func (c *Client) Get(ctx context.Context, key string) (*Item, error) {
-	pc, pc2 := c.get(ctx)
+func (c *Client) Get(ctx context.Context, key string) (i *Item, err error) {
+	err = c.do(ctx, func(c *Conn) error {
+		i, err = c.Get(key)
+		return err
+	})
 
-	item, err := pc.c.Get(key)
-	c.put(pc2, err)
-
-	return item, err
+	return
 }
 
 // GetMulti get multi keys
-func (c *Client) GetMulti(ctx context.Context, keys []string) (map[string]*Item, error) {
-	pc, pc2 := c.get(ctx)
+func (c *Client) GetMulti(ctx context.Context, keys []string) (is map[string]*Item, err error) {
+	err = c.do(ctx, func(c *Conn) error {
+		is, err = c.GetMulti(keys)
+		return err
+	})
 
-	items, err := pc.c.GetMulti(keys)
-	c.put(pc2, err)
-
-	return items, err
+	return
 }
 
 // Increment incr key
-func (c *Client) Increment(ctx context.Context, key string, delta uint64) (uint64, error) {
-	pc, pc2 := c.get(ctx)
+func (c *Client) Increment(ctx context.Context, key string, delta uint64) (d uint64, err error) {
+	err = c.do(ctx, func(c *Conn) error {
+		d, err = c.Increment(key, delta)
+		return err
+	})
 
-	v, err := pc.c.Increment(key, delta)
-	c.put(pc2, err)
-
-	return v, err
+	return
 }
 
 // Replace set old key
 func (c *Client) Replace(ctx context.Context, item *Item) error {
-	pc, pc2 := c.get(ctx)
-
-	err := pc.c.Replace(item)
-	c.put(pc2, err)
-
-	return err
+	return c.do(ctx, func(c *Conn) error {
+		return c.Replace(item)
+	})
 }
 
 // Set set key
 func (c *Client) Set(ctx context.Context, item *Item) error {
-	pc, pc2 := c.get(ctx)
-
-	err := pc.c.Set(item)
-	c.put(pc2, err)
-
-	return err
+	return c.do(ctx, func(c *Conn) error {
+		return c.Set(item)
+	})
 }
 
 // Touch change ttl
 func (c *Client) Touch(ctx context.Context, key string, seconds int32) error {
-	pc, pc2 := c.get(ctx)
-
-	err := pc.c.Touch(key, seconds)
-	c.put(pc2, err)
-
-	return err
+	return c.do(ctx, func(c *Conn) error {
+		return c.Touch(key, seconds)
+	})
 }
 
 // Close close all connection
