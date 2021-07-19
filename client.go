@@ -5,7 +5,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/bilibili/net/pool"
+	"github.com/go-kiss/net/pool"
 )
 
 // Client memcache client
