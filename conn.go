@@ -45,6 +45,13 @@ var (
 	resultOk        = []byte("OK\r\n")
 	resultError     = []byte("ERROR\r\n")
 	resultTouched   = []byte("TOUCHED\r\n")
+	resultVA        = []byte("VA")
+	resultEN        = []byte("EN")
+	resultHD        = []byte("HD")
+	resultNS        = []byte("NS")
+	resultEX        = []byte("EX")
+	resultNF        = []byte("NF")
+	resultMN        = []byte("MN")
 
 	resultClientErrorPrefix = []byte("CLIENT_ERROR ")
 	resultServerErrorPrefix = []byte("SERVER_ERROR ")
@@ -109,6 +116,21 @@ func (c *Conn) Get(key string) (*Item, error) {
 	return it, nil
 }
 
+// The meta get command is the generic command for retrieving key data from
+// memcached. Based on the flags supplied, it can replace all of the commands:
+// "get", "gets", "gat", "gats", "touch", as well as adding new options.
+func (c *Conn) MetaGet(key string, flags []metaFlager) (mr MetaResult, err error) {
+	if _, err = fmt.Fprintf(c.rw, "mg %s %s\r\n", key, buildMetaFlags(flags)); err != nil {
+		return
+	}
+	if err = c.rw.Flush(); err != nil {
+		return
+	}
+
+	mr, err = parseMetaResponse(c.rw.Reader)
+	return
+}
+
 // GetMulti is a batch version of Get. The returned map from keys to
 // items may have fewer elements than the input slice, due to memcache
 // cache misses. Each key must be at most 250 bytes in length.
@@ -171,6 +193,30 @@ func scanGetResponseLine(line []byte, it *Item) (size int, err error) {
 // Set writes the given item, unconditionally.
 func (c *Conn) Set(item *Item) error {
 	return c.populateOne(c.rw, "set", item)
+}
+
+// The meta set command a generic command for storing data to memcached. Based
+// on the flags supplied, it can replace all storage commands (see token M) as
+// well as adds new options.
+func (c *Conn) MetaSet(key string, data []byte, flags []metaFlager) (mr MetaResult, err error) {
+	if !legalKey(key) {
+		err = ErrMalformedKey
+		return
+	}
+	if _, err = fmt.Fprintf(c.rw, "ms %s %d %s\r\n", key, len(data), buildMetaFlags(flags)); err != nil {
+		return
+	}
+	if _, err = c.rw.Write(data); err != nil {
+		return
+	}
+	if _, err = c.rw.Write(crlf); err != nil {
+		return
+	}
+	if err = c.rw.Flush(); err != nil {
+		return
+	}
+	mr, err = parseMetaResponse(c.rw.Reader)
+	return
 }
 
 // Add writes the given item, if no value already exists for its
@@ -280,6 +326,23 @@ func (c *Conn) Delete(key string) error {
 	return writeExpectf(c.rw, resultDeleted, "delete %s\r\n", key)
 }
 
+// The meta delete command allows for explicit deletion of items, as well as
+// marking items as "stale" to allow serving items as stale during revalidation.
+func (c *Conn) MetaDelete(key string, flags []metaFlager) (mr MetaResult, err error) {
+	if !legalKey(key) {
+		err = ErrMalformedKey
+		return
+	}
+	if _, err = fmt.Fprintf(c.rw, "md %s %s\r\n", key, buildMetaFlags(flags)); err != nil {
+		return
+	}
+	if err = c.rw.Flush(); err != nil {
+		return
+	}
+	mr, err = parseMetaResponse(c.rw.Reader)
+	return
+}
+
 // Increment atomically increments key by delta. The return value is
 // the new value after being incremented or an error. If the value
 // didn't exist in memcached the error is ErrCacheMiss. The value in
@@ -297,6 +360,25 @@ func (c *Conn) Increment(key string, delta uint64) (newValue uint64, err error) 
 // around.
 func (c *Conn) Decrement(key string, delta uint64) (newValue uint64, err error) {
 	return c.incrDecr("decr", key, delta)
+}
+
+// The meta arithmetic command allows for basic operations against numerical
+// values. This replaces the "incr" and "decr" commands. Values are unsigned
+// 64bit integers. Decrementing will reach 0 rather than underflow. Incrementing
+// can overflow.
+func (c *Conn) MetaArithmetic(key string, flags []metaFlager) (mr MetaResult, err error) {
+	if !legalKey(key) {
+		err = ErrMalformedKey
+		return
+	}
+	if _, err = fmt.Fprintf(c.rw, "ma %s %s\r\n", key, buildMetaFlags(flags)); err != nil {
+		return
+	}
+	if err = c.rw.Flush(); err != nil {
+		return
+	}
+	mr, err = parseMetaResponse(c.rw.Reader)
+	return
 }
 
 func (c *Conn) incrDecr(verb, key string, delta uint64) (uint64, error) {
@@ -358,4 +440,68 @@ func legalKey(key string) bool {
 		}
 	}
 	return true
+}
+
+func processMetaResponse(r *bufio.Reader) (isNoOp bool, mr MetaResult, err error) {
+	statusLineRaw, err := r.ReadSlice('\n')
+	if err != nil {
+		return
+	}
+
+	statusLineRaw = statusLineRaw[:len(statusLineRaw)-len(crlf)]
+
+	if bytes.HasPrefix(statusLineRaw, resultMN) {
+		isNoOp = true
+		return
+	}
+	// FIXME: NS, EX, NF also have flag results. Should parse theme.
+	if bytes.HasPrefix(statusLineRaw, resultNS) {
+		err = ErrNotStored
+		return
+	}
+	if bytes.HasPrefix(statusLineRaw, resultEX) {
+		err = ErrCASConflict
+		return
+	}
+	if bytes.HasPrefix(statusLineRaw, resultNF) || bytes.HasPrefix(statusLineRaw, resultEN) {
+		err = ErrCacheMiss
+		return
+	}
+	if bytes.HasPrefix(statusLineRaw, resultHD) {
+		statusLine := strings.Split(strings.Trim(string(statusLineRaw[len(resultHD):]), " "), " ")
+		mr, err = obtainMetaFlagsResults(statusLine)
+		return
+	}
+	if bytes.HasPrefix(statusLineRaw, resultVA) {
+		statusLine := strings.Split(strings.Trim(string(statusLineRaw[len(resultVA):]), " "), " ")
+		if len(statusLine) == 0 {
+			err = fmt.Errorf("memcache: unexpected line in get response: %q", statusLineRaw)
+			return
+		}
+		size, perr := strconv.ParseInt(statusLine[0], 10, 64)
+		if perr != nil {
+			err = fmt.Errorf("memcache: unexpected line in get response: %q", statusLineRaw)
+			return
+		}
+
+		if mr, err = obtainMetaFlagsResults(statusLine[1:]); err != nil {
+			return
+		}
+		if mr.Value, err = ioutil.ReadAll(io.LimitReader(r, size+int64(len(crlf)))); err != nil {
+			return
+		}
+		if !bytes.HasSuffix(mr.Value, crlf) {
+			err = fmt.Errorf("memcache: corrupt get result read")
+			return
+		}
+		mr.Value = mr.Value[:size]
+		return
+	}
+	err = fmt.Errorf("memcache: unknown response: %q", statusLineRaw)
+	return
+}
+
+func parseMetaResponse(r *bufio.Reader) (mr MetaResult, err error) {
+	_, mr, err = processMetaResponse(r)
+	return
 }
