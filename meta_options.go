@@ -1,5 +1,14 @@
 package memcache
 
+type casToken struct {
+	value  int64
+	setted bool
+}
+
+func CasToken(v int64) casToken {
+	return casToken{v, true}
+}
+
 type MetaGetOptions struct {
 	BinaryKey        bool // interpret key as base64 encoded binary value
 	ReturnCasToken   bool // return item cas token
@@ -68,7 +77,7 @@ const (
 )
 
 type MetaSetOptions struct {
-	CasToken       int64       // compare and swap token
+	CasToken       casToken    // compare and swap token
 	BinaryKey      bool        // interpret key as base64 encoded binary value (see metaget)
 	ReturnCasToken bool        // return CAS value if successfully stored.
 	SetFlag        uint32      // set client flags to token (32 bit unsigned numeric)
@@ -96,17 +105,17 @@ func marshalMSOptions(mso MetaSetOptions) (fs []metaFlager) {
 	if mso.SetTTL != 0 {
 		fs = append(fs, WithSetTTL(mso.SetTTL))
 	}
-	if mso.CasToken != 0 {
-		fs = append(fs, WithCompareCAS(mso.CasToken))
+	if mso.CasToken.setted {
+		fs = append(fs, WithCompareCAS(mso.CasToken.value))
 	}
 	return
 }
 
 type MetaDeletOptions struct {
-	CasToken      int64 // compare and swap token
-	BinaryKey     bool  // interpret key as base64 encoded binary value (see metaget)
-	SetInvalidate bool  // mark as stale, bumps CAS.
-	SetTTL        int64 // updates TTL, only when paired with the SetInvalidate option
+	CasToken      casToken // compare and swap token
+	BinaryKey     bool     // interpret key as base64 encoded binary value (see metaget)
+	SetInvalidate bool     // mark as stale, bumps CAS.
+	SetTTL        int64    // updates TTL, only when paired with the SetInvalidate option
 }
 
 func marshalMDOptions(mdo MetaDeletOptions) (fs []metaFlager) {
@@ -119,8 +128,8 @@ func marshalMDOptions(mdo MetaDeletOptions) (fs []metaFlager) {
 	if mdo.SetTTL != 0 {
 		fs = append(fs, WithSetTTL(mdo.SetTTL))
 	}
-	if mdo.CasToken != 0 {
-		fs = append(fs, WithCompareCAS(mdo.CasToken))
+	if mdo.CasToken.setted {
+		fs = append(fs, WithCompareCAS(mdo.CasToken.value))
 	}
 	return
 }
@@ -134,11 +143,11 @@ const (
 )
 
 type MetaArithmeticOptions struct {
-	CasToken       int64 // compare and swap token
-	BinaryKey      bool  // interpret key as base64 encoded binary value (see metaget)
-	ReturnCasToken bool  // return current CAS value if successful.
-	ReturnTTL      bool  // return current TTL
-	ReturnValue    bool  // return new value
+	CasToken       casToken // compare and swap token
+	BinaryKey      bool     // interpret key as base64 encoded binary value (see metaget)
+	ReturnCasToken bool     // return current CAS value if successful.
+	ReturnTTL      bool     // return current TTL
+	ReturnValue    bool     // return new value
 
 	SetTTL       int64              // update TTL on success
 	NewWithTTL   int64              // auto create item on miss with supplied TTL
@@ -175,8 +184,8 @@ func marshalMAOptions(mao MetaArithmeticOptions) (fs []metaFlager) {
 	if mao.SetTTL != 0 {
 		fs = append(fs, WithSetTTL(mao.SetTTL))
 	}
-	if mao.CasToken != 0 {
-		fs = append(fs, WithCompareCAS(mao.CasToken))
+	if mao.CasToken.setted {
+		fs = append(fs, WithCompareCAS(mao.CasToken.value))
 	}
 	return
 }

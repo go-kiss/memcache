@@ -5,10 +5,6 @@ import (
 	"strings"
 )
 
-const (
-	NXCasToken = int64(-1)
-)
-
 var responseFlags = []metaFlager{
 	MetaFlag("W", "", func(mr *MetaResult, res string) error {
 		mr.IsWon = true
@@ -67,9 +63,7 @@ func obtainMetaFlagsResults(ss []string) (mr MetaResult, err error) {
 			}
 		}
 	}
-	if mr.CasToken <= 0 {
-		mr.CasToken = NXCasToken
-	}
+	mr.CasToken.setted = true
 	return
 }
 
@@ -108,9 +102,12 @@ func WithBinary() metaFlager { return MetaFlag("b", "", nil) }
 // WithCAS - c: return item cas token
 func WithCAS() metaFlager {
 	return MetaFlag("c", "", func(r *MetaResult, d string) error {
-		var err error
-		r.CasToken, err = strconv.ParseInt(d, 10, 64)
-		return err
+		v, err := strconv.ParseInt(d, 10, 64)
+		if err != nil {
+			return err
+		}
+		r.CasToken = CasToken(v)
+		return nil
 	})
 }
 

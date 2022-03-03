@@ -5,7 +5,7 @@ import (
 )
 
 type MetaResult struct {
-	CasToken   int64
+	CasToken   casToken
 	Flags      uint32
 	Hit        uint32
 	Key        string

@@ -24,7 +24,7 @@ func TestMetaSetGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if sr.CasToken == 0 {
+	if sr.CasToken.value == 0 {
 		t.Error("CAS Incorrect")
 	}
 
@@ -110,7 +110,7 @@ func TestMetaSetCAS(t *testing.T) {
 
 	// Normal set
 	_, err = c.MetaSet(ctx, string(k), v, MetaSetOptions{
-		CasToken: NXCasToken,
+		CasToken: CasToken(0),
 	})
 	if err != ErrCASConflict {
 		t.Error("CAS Invalid")
