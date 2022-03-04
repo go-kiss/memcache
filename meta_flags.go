@@ -6,26 +6,26 @@ import (
 )
 
 var responseFlags = []metaFlager{
-	MetaFlag("W", "", func(mr *MetaResult, res string) error {
+	useMetaFlag("W", "", func(mr *MetaResult, res string) error {
 		mr.IsWon = true
 		return nil
 	}),
-	MetaFlag("Z", "", func(mr *MetaResult, res string) error {
+	useMetaFlag("Z", "", func(mr *MetaResult, res string) error {
 		mr.IsSentWon = true
 		return nil
 	}),
-	MetaFlag("X", "", func(mr *MetaResult, res string) error {
+	useMetaFlag("X", "", func(mr *MetaResult, res string) error {
 		mr.IsStale = true
 		return nil
 	}),
 	withKey(),
 	withOpaque(""),
-	WithCAS(),
-	WithFlag(),
-	WithHit(),
-	WithLastAccess(),
-	WithSize(),
-	WithTTL(),
+	withCAS(),
+	withFlag(),
+	withHit(),
+	withLastAccess(),
+	withSize(),
+	withTTL(),
 }
 
 var globalRegisteredFlags = map[string]metaFlager{}
@@ -55,8 +55,7 @@ func obtainMetaFlagsResults(ss []string) (mr MetaResult, err error) {
 		if len(f) == 0 {
 			continue
 		}
-		r := []rune(f)
-		k, v := string(r[:1]), string(r[1:])
+		k, v := f[:1], f[1:]
 		if ff, ok := globalRegisteredFlags[k]; ok {
 			if err = ff.obtain(&mr, v); err != nil {
 				return
@@ -67,7 +66,7 @@ func obtainMetaFlagsResults(ss []string) (mr MetaResult, err error) {
 	return
 }
 
-func MetaFlag(name, input string, setFunc func(*MetaResult, string) error) metaFlager {
+func useMetaFlag(name, input string, setFunc func(*MetaResult, string) error) metaFlager {
 	return metaFlag{
 		k:   name,
 		i:   input,
@@ -96,24 +95,20 @@ func (f metaFlag) getKey() string {
 	return f.k
 }
 
-// WithBinary - b: interpret key as base64 encoded binary value
-func WithBinary() metaFlager { return MetaFlag("b", "", nil) }
+// withBinary - b: interpret key as base64 encoded binary value
+func withBinary() metaFlager { return useMetaFlag("b", "", nil) }
 
-// WithCAS - c: return item cas token
-func WithCAS() metaFlager {
-	return MetaFlag("c", "", func(r *MetaResult, d string) error {
-		v, err := strconv.ParseInt(d, 10, 64)
-		if err != nil {
-			return err
-		}
-		r.CasToken = CasToken(v)
-		return nil
+// withCAS - c: return item cas token
+func withCAS() metaFlager {
+	return useMetaFlag("c", "", func(r *MetaResult, d string) (err error) {
+		r.CasToken.value, err = strconv.ParseInt(d, 10, 64)
+		return
 	})
 }
 
-// WithFlag - f: return client flags token
-func WithFlag() metaFlager {
-	return MetaFlag("f", "", func(r *MetaResult, d string) error {
+// withFlag - f: return client flags token
+func withFlag() metaFlager {
+	return useMetaFlag("f", "", func(r *MetaResult, d string) error {
 		var err error
 		v, err := strconv.ParseUint(d, 10, 32)
 		if err != nil {
@@ -124,9 +119,9 @@ func WithFlag() metaFlager {
 	})
 }
 
-// WithHit - h: return whether item has been hit before as a 0 or 1
-func WithHit() metaFlager {
-	return MetaFlag("h", "", func(r *MetaResult, d string) error {
+// withHit - h: return whether item has been hit before as a 0 or 1
+func withHit() metaFlager {
+	return useMetaFlag("h", "", func(r *MetaResult, d string) error {
 		var err error
 		v, err := strconv.ParseUint(d, 10, 32)
 		if err != nil {
@@ -139,15 +134,15 @@ func WithHit() metaFlager {
 
 // withKey - k: return key as a token
 func withKey() metaFlager {
-	return MetaFlag("k", "", func(r *MetaResult, d string) error {
+	return useMetaFlag("k", "", func(r *MetaResult, d string) error {
 		r.Key = d
 		return nil
 	})
 }
 
-// WithLastAccess - l: return time since item was last accessed in seconds
-func WithLastAccess() metaFlager {
-	return MetaFlag("l", "", func(r *MetaResult, d string) error {
+// withLastAccess - l: return time since item was last accessed in seconds
+func withLastAccess() metaFlager {
+	return useMetaFlag("l", "", func(r *MetaResult, d string) error {
 		var err error
 		r.LastAccess, err = strconv.ParseUint(d, 10, 64)
 		return err
@@ -157,84 +152,84 @@ func WithLastAccess() metaFlager {
 // withOpaque - O(token): opaque value, consumes a token and copies back with response
 func withOpaque(token string) metaFlager {
 	token = strings.ReplaceAll(token, " ", "_")
-	return MetaFlag("O", token, func(r *MetaResult, d string) error {
+	return useMetaFlag("O", token, func(r *MetaResult, d string) error {
 		r.Opaque = d
 		return nil
 	})
 }
 
 // WithQuiet - q: use noreply semantics for return codes.
-func withQuiet() metaFlager { return MetaFlag("q", "", nil) }
+func withQuiet() metaFlager { return useMetaFlag("q", "", nil) }
 
-// WithSize - s: return item size token
-func WithSize() metaFlager {
-	return MetaFlag("s", "", func(r *MetaResult, d string) error {
+// withSize - s: return item size token
+func withSize() metaFlager {
+	return useMetaFlag("s", "", func(r *MetaResult, d string) error {
 		var err error
 		r.Size, err = strconv.ParseUint(d, 10, 64)
 		return err
 	})
 }
 
-// WithTTL - t: return item TTL remaining in seconds (-1 for unlimited)
-func WithTTL() metaFlager {
-	return MetaFlag("t", "", func(r *MetaResult, d string) error {
+// withTTL - t: return item TTL remaining in seconds (-1 for unlimited)
+func withTTL() metaFlager {
+	return useMetaFlag("t", "", func(r *MetaResult, d string) error {
 		var err error
 		r.TTL, err = strconv.ParseInt(d, 10, 64)
 		return err
 	})
 }
 
-// WithNoBump - u: don't bump the item in the LRU
-func WithNoBump() metaFlager {
-	return MetaFlag("u", "", nil)
+// withNoBump - u: don't bump the item in the LRU
+func withNoBump() metaFlager {
+	return useMetaFlag("u", "", nil)
 }
 
-// WithValue - v: return item value in <data block>
-func WithValue() metaFlager {
-	return MetaFlag("v", "", nil)
+// withValue - v: return item value in <data block>
+func withValue() metaFlager {
+	return useMetaFlag("v", "", nil)
 }
 
-// WithVivify - N(token): vivify on miss, takes TTL as a argument
-func WithVivify(token int64) metaFlager {
-	return MetaFlag("N", strconv.FormatInt(token, 10), nil)
+// withVivify - N(token): vivify on miss, takes TTL as a argument
+func withVivify(token int64) metaFlager {
+	return useMetaFlag("N", strconv.FormatInt(token, 10), nil)
 }
 
-// WithRecache - R(token): if token is less than remaining TTL win for recache
-func WithRecache(token uint64) metaFlager {
-	return MetaFlag("R", strconv.FormatUint(token, 10), nil)
+// withRecache - R(token): if token is less than remaining TTL win for recache
+func withRecache(token uint64) metaFlager {
+	return useMetaFlag("R", strconv.FormatUint(token, 10), nil)
 }
 
-// WithSetTTL - T(token): update remaining TTL
-func WithSetTTL(token int64) metaFlager {
-	return MetaFlag("T", strconv.FormatInt(token, 10), nil)
+// withSetTTL - T(token): update remaining TTL
+func withSetTTL(token int64) metaFlager {
+	return useMetaFlag("T", strconv.FormatInt(token, 10), nil)
 }
 
-// WithCompareCAS - C(token): compare CAS value when storing item
-func WithCompareCAS(token int64) metaFlager {
-	return MetaFlag("C", strconv.FormatInt(token, 10), nil)
+// withCompareCAS - C(token): compare CAS value when storing item
+func withCompareCAS(token int64) metaFlager {
+	return useMetaFlag("C", strconv.FormatInt(token, 10), nil)
 }
 
-// WithSetFlag - F(token): set client flags to token (32 bit unsigned numeric)
-func WithSetFlag(token uint32) metaFlager {
-	return MetaFlag("F", strconv.FormatUint(uint64(token), 10), nil)
+// withSetFlag - F(token): set client flags to token (32 bit unsigned numeric)
+func withSetFlag(token uint32) metaFlager {
+	return useMetaFlag("F", strconv.FormatUint(uint64(token), 10), nil)
 }
 
-// WithSetInvalid - I: invalidate. set-to-invalid if supplied CAS is older than item's CAS / - I: invalidate. mark as stale, bumps CAS.
-func WithSetInvalid() metaFlager {
-	return MetaFlag("I", "", nil)
+// withSetInvalid - I: invalidate. set-to-invalid if supplied CAS is older than item's CAS / - I: invalidate. mark as stale, bumps CAS.
+func withSetInvalid() metaFlager {
+	return useMetaFlag("I", "", nil)
 }
 
-// WithMode - M(token): mode switch to change behavior to add, replace, append, prepend
-func WithMode(token string) metaFlager {
-	return MetaFlag("M", token, nil)
+// withMode - M(token): mode switch to change behavior to add, replace, append, prepend
+func withMode(token string) metaFlager {
+	return useMetaFlag("M", token, nil)
 }
 
-// WithInitialValue - J(token): initial value to use if auto created after miss (default 0)
-func WithInitialValue(token uint64) metaFlager {
-	return MetaFlag("J", strconv.FormatUint(token, 10), nil)
+// withInitialValue - J(token): initial value to use if auto created after miss (default 0)
+func withInitialValue(token uint64) metaFlager {
+	return useMetaFlag("J", strconv.FormatUint(token, 10), nil)
 }
 
-// WithDelta - D(token): delta to apply (decimal unsigned 64-bit number, default 1)
-func WithDelta(token uint64) metaFlager {
-	return MetaFlag("D", strconv.FormatUint(token, 10), nil)
+// withDelta - D(token): delta to apply (decimal unsigned 64-bit number, default 1)
+func withDelta(token uint64) metaFlager {
+	return useMetaFlag("D", strconv.FormatUint(token, 10), nil)
 }

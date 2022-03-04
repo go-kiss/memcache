@@ -82,12 +82,22 @@ func TestMetaSetGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	item, err = c.MetaGet(ctx, string(k), MetaGetOptions{ReturnValue: true})
+	item, err = c.MetaGet(ctx, string(k), MetaGetOptions{ReturnValue: true, ReturnCasToken: true})
+	t.Logf("%+v", item)
 	if err != nil {
 		t.Error(err)
 	}
 	if !bytes.Equal(item.Value, append(v, nv...)) {
 		t.Error("Append incorrect")
+	}
+
+	_, err = c.MetaDelete(ctx, string(k), MetaDeletOptions{CasToken: item.CasToken})
+	if err != nil {
+		t.Error(err)
+	}
+	item, err = c.MetaGet(ctx, string(k), MetaGetOptions{ReturnValue: true, ReturnCasToken: true})
+	if err != ErrCacheMiss {
+		t.Error("Delete Fail.")
 	}
 }
 
@@ -110,7 +120,7 @@ func TestMetaSetCAS(t *testing.T) {
 
 	// Normal set
 	_, err = c.MetaSet(ctx, string(k), v, MetaSetOptions{
-		CasToken: CasToken(0),
+		CasToken: casToken{0, true},
 	})
 	if err != ErrCASConflict {
 		t.Error("CAS Invalid")

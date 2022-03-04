@@ -5,10 +5,6 @@ type casToken struct {
 	setted bool
 }
 
-func CasToken(v int64) casToken {
-	return casToken{v, true}
-}
-
 type MetaGetOptions struct {
 	BinaryKey        bool // interpret key as base64 encoded binary value
 	ReturnCasToken   bool // return item cas token
@@ -27,40 +23,40 @@ type MetaGetOptions struct {
 
 func marshalMGOptions(mgo MetaGetOptions) (fs []metaFlager) {
 	if mgo.NewWithTTL != 0 {
-		fs = append(fs, WithVivify(mgo.NewWithTTL))
+		fs = append(fs, withVivify(mgo.NewWithTTL))
 	}
 	if mgo.BinaryKey {
-		fs = append(fs, WithBinary())
+		fs = append(fs, withBinary())
 	}
 	if mgo.ReturnCasToken {
-		fs = append(fs, WithCAS())
+		fs = append(fs, withCAS())
 	}
 	if mgo.ReturnFlags {
-		fs = append(fs, WithFlag())
+		fs = append(fs, withFlag())
 	}
 	if mgo.ReturnHit {
-		fs = append(fs, WithHit())
+		fs = append(fs, withHit())
 	}
 	if mgo.ReturnLastAccess {
-		fs = append(fs, WithLastAccess())
+		fs = append(fs, withLastAccess())
 	}
 	if mgo.ReturnSize {
-		fs = append(fs, WithSize())
+		fs = append(fs, withSize())
 	}
 	if mgo.ReturnTTL {
-		fs = append(fs, WithTTL())
+		fs = append(fs, withTTL())
 	}
 	if mgo.ReturnValue {
-		fs = append(fs, WithValue())
+		fs = append(fs, withValue())
 	}
 	if mgo.NoBump {
-		fs = append(fs, WithNoBump())
+		fs = append(fs, withNoBump())
 	}
 	if mgo.SetTTL != 0 {
-		fs = append(fs, WithSetTTL(mgo.SetTTL))
+		fs = append(fs, withSetTTL(mgo.SetTTL))
 	}
 	if mgo.RequestRecacheWithTTL != 0 {
-		fs = append(fs, WithRecache(mgo.RequestRecacheWithTTL))
+		fs = append(fs, withRecache(mgo.RequestRecacheWithTTL))
 	}
 	return
 }
@@ -88,25 +84,25 @@ type MetaSetOptions struct {
 
 func marshalMSOptions(mso MetaSetOptions) (fs []metaFlager) {
 	if mso.BinaryKey {
-		fs = append(fs, WithBinary())
+		fs = append(fs, withBinary())
 	}
 	if mso.ReturnCasToken {
-		fs = append(fs, WithCAS())
+		fs = append(fs, withCAS())
 	}
 	if mso.SetFlag != 0 {
-		fs = append(fs, WithSetFlag(mso.SetFlag))
+		fs = append(fs, withSetFlag(mso.SetFlag))
 	}
 	if mso.SetInvalidate {
-		fs = append(fs, WithSetInvalid())
+		fs = append(fs, withSetInvalid())
 	}
 	if mso.Mode != MetaSetModeEmpty {
-		fs = append(fs, WithMode(string(mso.Mode)))
+		fs = append(fs, withMode(string(mso.Mode)))
 	}
 	if mso.SetTTL != 0 {
-		fs = append(fs, WithSetTTL(mso.SetTTL))
+		fs = append(fs, withSetTTL(mso.SetTTL))
 	}
 	if mso.CasToken.setted {
-		fs = append(fs, WithCompareCAS(mso.CasToken.value))
+		fs = append(fs, withCompareCAS(mso.CasToken.value))
 	}
 	return
 }
@@ -120,16 +116,16 @@ type MetaDeletOptions struct {
 
 func marshalMDOptions(mdo MetaDeletOptions) (fs []metaFlager) {
 	if mdo.BinaryKey {
-		fs = append(fs, WithBinary())
+		fs = append(fs, withBinary())
 	}
 	if mdo.SetInvalidate {
-		fs = append(fs, WithSetInvalid())
+		fs = append(fs, withSetInvalid())
 	}
 	if mdo.SetTTL != 0 {
-		fs = append(fs, WithSetTTL(mdo.SetTTL))
+		fs = append(fs, withSetTTL(mdo.SetTTL))
 	}
 	if mdo.CasToken.setted {
-		fs = append(fs, WithCompareCAS(mdo.CasToken.value))
+		fs = append(fs, withCompareCAS(mdo.CasToken.value))
 	}
 	return
 }
@@ -158,34 +154,34 @@ type MetaArithmeticOptions struct {
 
 func marshalMAOptions(mao MetaArithmeticOptions) (fs []metaFlager) {
 	if mao.NewWithTTL != 0 {
-		fs = append(fs, WithVivify(mao.NewWithTTL))
+		fs = append(fs, withVivify(mao.NewWithTTL))
 	}
 	if mao.BinaryKey {
-		fs = append(fs, WithBinary())
+		fs = append(fs, withBinary())
 	}
 	if mao.ReturnCasToken {
-		fs = append(fs, WithCAS())
+		fs = append(fs, withCAS())
 	}
 	if mao.Delta != 0 {
-		fs = append(fs, WithDelta(mao.Delta))
+		fs = append(fs, withDelta(mao.Delta))
 	}
 	if mao.InitialValue != 0 {
-		fs = append(fs, WithInitialValue(mao.InitialValue))
+		fs = append(fs, withInitialValue(mao.InitialValue))
 	}
 	if mao.ReturnTTL {
-		fs = append(fs, WithTTL())
+		fs = append(fs, withTTL())
 	}
 	if mao.ReturnValue {
-		fs = append(fs, WithValue())
+		fs = append(fs, withValue())
 	}
 	if mao.Mode != MetaArithmeticModeEmpty {
-		fs = append(fs, WithMode(string(mao.Mode)))
+		fs = append(fs, withMode(string(mao.Mode)))
 	}
 	if mao.SetTTL != 0 {
-		fs = append(fs, WithSetTTL(mao.SetTTL))
+		fs = append(fs, withSetTTL(mao.SetTTL))
 	}
 	if mao.CasToken.setted {
-		fs = append(fs, WithCompareCAS(mao.CasToken.value))
+		fs = append(fs, withCompareCAS(mao.CasToken.value))
 	}
 	return
 }

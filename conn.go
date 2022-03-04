@@ -45,13 +45,6 @@ var (
 	resultOk        = []byte("OK\r\n")
 	resultError     = []byte("ERROR\r\n")
 	resultTouched   = []byte("TOUCHED\r\n")
-	resultVA        = []byte("VA")
-	resultEN        = []byte("EN")
-	resultHD        = []byte("HD")
-	resultNS        = []byte("NS")
-	resultEX        = []byte("EX")
-	resultNF        = []byte("NF")
-	resultMN        = []byte("MN")
 
 	resultClientErrorPrefix = []byte("CLIENT_ERROR ")
 	resultServerErrorPrefix = []byte("SERVER_ERROR ")
@@ -127,7 +120,7 @@ func (c *Conn) MetaGet(key string, flags []metaFlager) (mr MetaResult, err error
 		return
 	}
 
-	mr, err = parseMetaResponse(c.rw.Reader)
+	_, mr, err = parseMetaResponse(c.rw.Reader)
 	return
 }
 
@@ -215,7 +208,7 @@ func (c *Conn) MetaSet(key string, data []byte, flags []metaFlager) (mr MetaResu
 	if err = c.rw.Flush(); err != nil {
 		return
 	}
-	mr, err = parseMetaResponse(c.rw.Reader)
+	_, mr, err = parseMetaResponse(c.rw.Reader)
 	return
 }
 
@@ -339,7 +332,7 @@ func (c *Conn) MetaDelete(key string, flags []metaFlager) (mr MetaResult, err er
 	if err = c.rw.Flush(); err != nil {
 		return
 	}
-	mr, err = parseMetaResponse(c.rw.Reader)
+	_, mr, err = parseMetaResponse(c.rw.Reader)
 	return
 }
 
@@ -377,7 +370,7 @@ func (c *Conn) MetaArithmetic(key string, flags []metaFlager) (mr MetaResult, er
 	if err = c.rw.Flush(); err != nil {
 		return
 	}
-	mr, err = parseMetaResponse(c.rw.Reader)
+	_, mr, err = parseMetaResponse(c.rw.Reader)
 	return
 }
 
@@ -442,66 +435,46 @@ func legalKey(key string) bool {
 	return true
 }
 
-func processMetaResponse(r *bufio.Reader) (isNoOp bool, mr MetaResult, err error) {
+func parseMetaResponse(r *bufio.Reader) (isNoOp bool, mr MetaResult, err error) {
 	statusLineRaw, err := r.ReadSlice('\n')
 	if err != nil {
 		return
 	}
 
-	statusLineRaw = statusLineRaw[:len(statusLineRaw)-len(crlf)]
-
-	if bytes.HasPrefix(statusLineRaw, resultMN) {
+	status := strings.Fields(string(statusLineRaw))
+	code, size, withValue, status := status[0], int64(0), false, status[1:]
+	switch code {
+	case "MN":
 		isNoOp = true
-		return
-	}
-	// FIXME: NS, EX, NF also have flag results. Should parse theme.
-	if bytes.HasPrefix(statusLineRaw, resultNS) {
+	case "VA":
+		size, err = strconv.ParseInt(status[0], 10, 64)
+		status, withValue = status[1:], true
+	case "NS":
 		err = ErrNotStored
-		return
-	}
-	if bytes.HasPrefix(statusLineRaw, resultEX) {
+	case "EX":
 		err = ErrCASConflict
-		return
-	}
-	if bytes.HasPrefix(statusLineRaw, resultNF) || bytes.HasPrefix(statusLineRaw, resultEN) {
+	case "EN":
+		fallthrough
+	case "NF":
 		err = ErrCacheMiss
+	case "HD":
+	default:
+		err = fmt.Errorf("memcache: unexpected line in response: %q", statusLineRaw)
+	}
+	if isNoOp || err != nil {
 		return
 	}
-	if bytes.HasPrefix(statusLineRaw, resultHD) {
-		statusLine := strings.Split(strings.Trim(string(statusLineRaw[len(resultHD):]), " "), " ")
-		mr, err = obtainMetaFlagsResults(statusLine)
+	if mr, err = obtainMetaFlagsResults(status); err != nil {
 		return
 	}
-	if bytes.HasPrefix(statusLineRaw, resultVA) {
-		statusLine := strings.Split(strings.Trim(string(statusLineRaw[len(resultVA):]), " "), " ")
-		if len(statusLine) == 0 {
-			err = fmt.Errorf("memcache: unexpected line in get response: %q", statusLineRaw)
-			return
-		}
-		size, perr := strconv.ParseInt(statusLine[0], 10, 64)
-		if perr != nil {
-			err = fmt.Errorf("memcache: unexpected line in get response: %q", statusLineRaw)
-			return
-		}
-
-		if mr, err = obtainMetaFlagsResults(statusLine[1:]); err != nil {
-			return
-		}
-		if mr.Value, err = ioutil.ReadAll(io.LimitReader(r, size+int64(len(crlf)))); err != nil {
-			return
-		}
-		if !bytes.HasSuffix(mr.Value, crlf) {
-			err = fmt.Errorf("memcache: corrupt get result read")
+	if withValue {
+		s := size + int64(len(crlf))
+		mr.Value = make([]byte, s)
+		_, err = io.ReadFull(r, mr.Value)
+		if err != nil {
 			return
 		}
 		mr.Value = mr.Value[:size]
-		return
 	}
-	err = fmt.Errorf("memcache: unknown response: %q", statusLineRaw)
-	return
-}
-
-func parseMetaResponse(r *bufio.Reader) (mr MetaResult, err error) {
-	_, mr, err = processMetaResponse(r)
 	return
 }
