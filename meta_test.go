@@ -3,7 +3,6 @@ package memcache
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"os"
 	"strconv"
 	"testing"
@@ -15,8 +14,7 @@ func TestMetaSetGet(t *testing.T) {
 	k, v, f, ttl, ttlDelta, wait, ctx, nv := []byte("KIANA"), []byte("KASLANA"), uint32(114514), int64(300), int64(20), int64(2), context.Background(), []byte("KALLEN")
 
 	// Normal set
-	sr, err := c.MetaSet(ctx, base64.StdEncoding.EncodeToString(k), v, MetaSetOptions{
-		BinaryKey:      true,
+	sr, err := c.MetaSet(ctx, k, v, MetaSetOptions{
 		ReturnCasToken: true,
 		SetFlag:        f,
 		SetTTL:         ttl,
@@ -28,7 +26,7 @@ func TestMetaSetGet(t *testing.T) {
 		t.Error("CAS Incorrect")
 	}
 
-	item, err := c.MetaGet(ctx, string(k), MetaGetOptions{
+	item, err := c.MetaGet(ctx, k, MetaGetOptions{
 		ReturnCasToken: true,
 		ReturnFlags:    true,
 		ReturnSize:     true,
@@ -58,7 +56,7 @@ func TestMetaSetGet(t *testing.T) {
 
 	// Hit, LastAccess, SetTTL
 	time.Sleep(time.Duration(wait) * time.Second)
-	item, err = c.MetaGet(ctx, string(k), MetaGetOptions{
+	item, err = c.MetaGet(ctx, k, MetaGetOptions{
 		ReturnHit:        true,
 		ReturnLastAccess: true,
 		ReturnTTL:        true,
@@ -78,11 +76,11 @@ func TestMetaSetGet(t *testing.T) {
 	}
 
 	// append
-	_, err = c.MetaSet(ctx, string(k), nv, MetaSetOptions{Mode: MetaSetModeAppend})
+	_, err = c.MetaSet(ctx, k, nv, MetaSetOptions{Mode: MetaSetModeAppend})
 	if err != nil {
 		t.Error(err)
 	}
-	item, err = c.MetaGet(ctx, string(k), MetaGetOptions{ReturnValue: true, ReturnCasToken: true})
+	item, err = c.MetaGet(ctx, k, MetaGetOptions{ReturnValue: true, ReturnCasToken: true})
 	t.Logf("%+v", item)
 	if err != nil {
 		t.Error(err)
@@ -91,11 +89,11 @@ func TestMetaSetGet(t *testing.T) {
 		t.Error("Append incorrect")
 	}
 
-	_, err = c.MetaDelete(ctx, string(k), MetaDeletOptions{CasToken: item.CasToken})
+	_, err = c.MetaDelete(ctx, k, MetaDeletOptions{CasToken: item.CasToken})
 	if err != nil {
 		t.Error(err)
 	}
-	item, err = c.MetaGet(ctx, string(k), MetaGetOptions{ReturnValue: true, ReturnCasToken: true})
+	item, err = c.MetaGet(ctx, k, MetaGetOptions{ReturnValue: true, ReturnCasToken: true})
 	if err != ErrCacheMiss {
 		t.Error("Delete Fail.")
 	}
@@ -105,7 +103,7 @@ func TestMetaSetCAS(t *testing.T) {
 	c, _ := New(os.Getenv("MC_ADDRESS"), 2, 100)
 	k, v, ctx, ttl := []byte("KASLANA"), []byte("KIANA"), context.Background(), int64(300)
 
-	gr, err := c.MetaGet(ctx, string(k), MetaGetOptions{
+	gr, err := c.MetaGet(ctx, k, MetaGetOptions{
 		ReturnCasToken: true,
 		NewWithTTL:     ttl,
 		ReturnTTL:      true,
@@ -119,7 +117,7 @@ func TestMetaSetCAS(t *testing.T) {
 	}
 
 	// Normal set
-	_, err = c.MetaSet(ctx, string(k), v, MetaSetOptions{
+	_, err = c.MetaSet(ctx, k, v, MetaSetOptions{
 		CasToken: casToken{0, true},
 	})
 	if err != ErrCASConflict {
@@ -127,14 +125,14 @@ func TestMetaSetCAS(t *testing.T) {
 	}
 
 	// Cas Set
-	_, err = c.MetaSet(ctx, string(k), v, MetaSetOptions{
+	_, err = c.MetaSet(ctx, k, v, MetaSetOptions{
 		CasToken: gr.CasToken,
 	})
 	if err != nil {
 		t.Error("Cas Error", err)
 	}
 
-	item, err := c.MetaGet(ctx, string(k), MetaGetOptions{
+	item, err := c.MetaGet(ctx, k, MetaGetOptions{
 		ReturnValue: true,
 	})
 	if err != nil {
@@ -149,7 +147,7 @@ func TestMetaSetCAS(t *testing.T) {
 func TestAdvancedMeta(t *testing.T) {
 	c, _ := New(os.Getenv("MC_ADDRESS"), 2, 100)
 	ctx := context.Background()
-	key := "NEPTUNE_SEKAI_ICHIBAN_KAWAII"
+	key := []byte("NEPTUNE_SEKAI_ICHIBAN_KAWAII")
 	value := []byte("https://www.bilibili.com/video/BV1zU4y1w7XE")
 
 	r, err := c.MetaGet(ctx, key, MetaGetOptions{
@@ -199,7 +197,7 @@ func TestAdvancedMeta(t *testing.T) {
 
 func TestMetaArithmetic(t *testing.T) {
 	c, _ := New(os.Getenv("MC_ADDRESS"), 2, 100)
-	ctx, k, iv, d, ttl := context.Background(), "KALLEN", uint64(20), uint64(11), int64(20)
+	ctx, k, iv, d, ttl := context.Background(), []byte("KALLEN"), uint64(20), uint64(11), int64(20)
 	item, err := c.MetaArithmetic(ctx, k, MetaArithmeticOptions{
 		InitialValue:   iv,
 		NewWithTTL:     ttl,
@@ -234,5 +232,27 @@ func TestMetaArithmetic(t *testing.T) {
 	}
 	if !bytes.Equal(item.Value, []byte(strconv.FormatUint(iv, 10))) {
 		t.Errorf("Decrease value error. got %q should be %q", item.Value, iv)
+	}
+}
+
+func TestBinaryKey(t *testing.T) {
+	c, _ := New(os.Getenv("MC_ADDRESS"), 2, 100)
+	ctx := context.Background()
+	k, err := os.ReadFile("binaryKey.png")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = c.MetaSet(ctx, k, []byte{}, MetaSetOptions{BinaryKey: true})
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = c.MetaGet(ctx, k, MetaGetOptions{BinaryKey: true})
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = c.MetaGet(ctx, k, MetaGetOptions{ReturnValue: true, BinaryKey: true})
+	if err != nil {
+		t.Error("Binary Key Error.", err)
 	}
 }
