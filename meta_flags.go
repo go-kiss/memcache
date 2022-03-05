@@ -151,7 +151,6 @@ func withLastAccess() metaFlager {
 
 // withOpaque - O(token): opaque value, consumes a token and copies back with response
 func withOpaque(token string) metaFlager {
-	token = strings.ReplaceAll(token, " ", "_")
 	return useMetaFlag("O", token, func(r *MetaResult, d string) error {
 		r.Opaque = d
 		return nil

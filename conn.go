@@ -120,7 +120,7 @@ func (c *Conn) MetaGet(key string, flags []metaFlager) (mr MetaResult, err error
 		return
 	}
 
-	_, mr, err = parseMetaResponse(c.rw.Reader)
+	mr, err = parseMetaResponse(c.rw.Reader)
 	return
 }
 
@@ -208,7 +208,7 @@ func (c *Conn) MetaSet(key string, data []byte, flags []metaFlager) (mr MetaResu
 	if err = c.rw.Flush(); err != nil {
 		return
 	}
-	_, mr, err = parseMetaResponse(c.rw.Reader)
+	mr, err = parseMetaResponse(c.rw.Reader)
 	return
 }
 
@@ -332,7 +332,7 @@ func (c *Conn) MetaDelete(key string, flags []metaFlager) (mr MetaResult, err er
 	if err = c.rw.Flush(); err != nil {
 		return
 	}
-	_, mr, err = parseMetaResponse(c.rw.Reader)
+	mr, err = parseMetaResponse(c.rw.Reader)
 	return
 }
 
@@ -370,7 +370,7 @@ func (c *Conn) MetaArithmetic(key string, flags []metaFlager) (mr MetaResult, er
 	if err = c.rw.Flush(); err != nil {
 		return
 	}
-	_, mr, err = parseMetaResponse(c.rw.Reader)
+	mr, err = parseMetaResponse(c.rw.Reader)
 	return
 }
 
@@ -435,40 +435,38 @@ func legalKey(key string) bool {
 	return true
 }
 
-func parseMetaResponse(r *bufio.Reader) (isNoOp bool, mr MetaResult, err error) {
+func parseMetaResponse(r *bufio.Reader) (mr MetaResult, err error) {
 	statusLineRaw, err := r.ReadSlice('\n')
 	if err != nil {
 		return
 	}
 
 	status := strings.Fields(string(statusLineRaw))
-	code, size, withValue, status := status[0], int64(0), false, status[1:]
+	code, size, withValue, status := status[0], 0, false, status[1:]
 	switch code {
 	case "MN":
-		isNoOp = true
+		mr.isNoOp = true
 	case "VA":
-		size, err = strconv.ParseInt(status[0], 10, 64)
+		size, err = strconv.Atoi(status[0])
 		status, withValue = status[1:], true
 	case "NS":
 		err = ErrNotStored
 	case "EX":
 		err = ErrCASConflict
-	case "EN":
-		fallthrough
-	case "NF":
+	case "EN", "NF":
 		err = ErrCacheMiss
 	case "HD":
 	default:
 		err = fmt.Errorf("memcache: unexpected line in response: %q", statusLineRaw)
 	}
-	if isNoOp || err != nil {
+	if mr.isNoOp || err != nil {
 		return
 	}
 	if mr, err = obtainMetaFlagsResults(status); err != nil {
 		return
 	}
 	if withValue {
-		s := size + int64(len(crlf))
+		s := size + len(crlf)
 		mr.Value = make([]byte, s)
 		_, err = io.ReadFull(r, mr.Value)
 		if err != nil {

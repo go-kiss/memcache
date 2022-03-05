@@ -18,6 +18,8 @@ type MetaResult struct {
 	IsWon      bool
 	IsStale    bool
 	IsSentWon  bool
+
+	isNoOp bool
 }
 
 // Get get one key
