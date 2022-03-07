@@ -20,11 +20,11 @@ func TestMetaSetGet(t *testing.T) {
 
 	// Normal set
 	sr, err := c.MetaSet(ctx, MetaSetOptions{
-		Key:            k,
-		Value:          v,
-		ReturnCasToken: true,
-		SetFlag:        f,
-		SetTTL:         300,
+		Key:         k,
+		Value:       v,
+		GetCasToken: true,
+		SetFlag:     f,
+		SetTTL:      300,
 	})
 	if err != nil {
 		t.Error(err)
@@ -34,13 +34,13 @@ func TestMetaSetGet(t *testing.T) {
 	}
 
 	item, err := c.MetaGet(ctx, MetaGetOptions{
-		Key:            k,
-		ReturnCasToken: true,
-		ReturnFlags:    true,
-		ReturnSize:     true,
-		ReturnTTL:      true,
-		ReturnValue:    true,
-		SetTTL:         320,
+		Key:         k,
+		GetCasToken: true,
+		GetFlags:    true,
+		GetSize:     true,
+		GetTTL:      true,
+		GetValue:    true,
+		SetTTL:      320,
 	})
 	if err != nil {
 		t.Error(err)
@@ -64,10 +64,10 @@ func TestMetaSetGet(t *testing.T) {
 	// Hit, LastAccess, SetTTL
 	time.Sleep(2 * time.Second)
 	item, err = c.MetaGet(ctx, MetaGetOptions{
-		Key:              k,
-		ReturnHit:        true,
-		ReturnLastAccess: true,
-		ReturnTTL:        true,
+		Key:           k,
+		GetHit:        true,
+		GetLastAccess: true,
+		GetTTL:        true,
 	})
 	if err != nil {
 		t.Error(err)
@@ -87,7 +87,7 @@ func TestMetaSetGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	item, err = c.MetaGet(ctx, MetaGetOptions{Key: k, ReturnValue: true, ReturnCasToken: true})
+	item, err = c.MetaGet(ctx, MetaGetOptions{Key: k, GetValue: true, GetCasToken: true})
 	if err != nil {
 		t.Error(err)
 	}
@@ -99,7 +99,7 @@ func TestMetaSetGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	item, err = c.MetaGet(ctx, MetaGetOptions{Key: k, ReturnValue: true, ReturnCasToken: true})
+	item, err = c.MetaGet(ctx, MetaGetOptions{Key: k, GetValue: true, GetCasToken: true})
 	if err != ErrCacheMiss {
 		t.Error("Delete Fail.")
 	}
@@ -110,10 +110,10 @@ func TestMetaSetCAS(t *testing.T) {
 	k, v, ctx := "KASLANA", []byte("KIANA"), context.Background()
 
 	gr, err := c.MetaGet(ctx, MetaGetOptions{
-		Key:            k,
-		ReturnCasToken: true,
-		NewWithTTL:     300,
-		ReturnTTL:      true,
+		Key:              k,
+		GetCasToken:      true,
+		SetVivifyWithTTL: 300,
+		GetTTL:           true,
 	})
 	if err != nil {
 		t.Error(err)
@@ -143,8 +143,8 @@ func TestMetaSetCAS(t *testing.T) {
 	}
 
 	item, err := c.MetaGet(ctx, MetaGetOptions{
-		Key:         k,
-		ReturnValue: true,
+		Key:      k,
+		GetValue: true,
 	})
 	if err != nil {
 		t.Error(err)
@@ -161,9 +161,9 @@ func TestAdvancedMeta(t *testing.T) {
 	value := []byte("https://www.bilibili.com/video/BV1zU4y1w7XE")
 
 	r, err := c.MetaGet(ctx, MetaGetOptions{
-		Key:            key,
-		NewWithTTL:     10,
-		ReturnCasToken: true,
+		Key:              key,
+		SetVivifyWithTTL: 10,
+		GetCasToken:      true,
 	})
 	if err != nil {
 		t.Error(err)
@@ -173,7 +173,7 @@ func TestAdvancedMeta(t *testing.T) {
 		t.Error("Won fail")
 	}
 
-	r2, err := c.MetaGet(ctx, MetaGetOptions{Key: key, ReturnSize: true})
+	r2, err := c.MetaGet(ctx, MetaGetOptions{Key: key, GetSize: true})
 	if err != nil {
 		t.Error(err)
 	}
@@ -193,8 +193,8 @@ func TestAdvancedMeta(t *testing.T) {
 
 	item, err := c.MetaGet(ctx,
 		MetaGetOptions{
-			Key:         key,
-			ReturnValue: true,
+			Key:      key,
+			GetValue: true,
 		})
 	if err != nil {
 		t.Error(err)
@@ -212,11 +212,11 @@ func TestMetaArithmetic(t *testing.T) {
 	var iv, d, ttl uint64 = 20, 11, 20
 
 	item, err := c.MetaArithmetic(ctx, MetaArithmeticOptions{
-		Key:            k,
-		InitialValue:   iv,
-		NewWithTTL:     ttl,
-		ReturnValue:    true,
-		ReturnCasToken: true,
+		Key:              k,
+		InitialValue:     iv,
+		SetVivifyWithTTL: ttl,
+		GetValue:         true,
+		GetCasToken:      true,
 	})
 	if err != nil {
 		t.Error(err)
@@ -225,10 +225,10 @@ func TestMetaArithmetic(t *testing.T) {
 		t.Errorf("Initial value error. got %q should be %q", item.Value, iv)
 	}
 	item, err = c.MetaArithmetic(ctx, MetaArithmeticOptions{
-		Key:         k,
-		Delta:       d,
-		CasToken:    item.CasToken,
-		ReturnValue: true,
+		Key:      k,
+		Delta:    d,
+		CasToken: item.CasToken,
+		GetValue: true,
 	})
 	if err != nil {
 		t.Error(err)
@@ -237,11 +237,11 @@ func TestMetaArithmetic(t *testing.T) {
 		t.Errorf("Increase value error. got %q should be %q", item.Value, iv+d)
 	}
 	item, err = c.MetaArithmetic(ctx, MetaArithmeticOptions{
-		Key:         k,
-		Delta:       d,
-		CasToken:    item.CasToken,
-		Mode:        MetaArithmeticModeDecrement,
-		ReturnValue: true,
+		Key:      k,
+		Delta:    d,
+		CasToken: item.CasToken,
+		Mode:     MetaArithmeticModeDecrement,
+		GetValue: true,
 	})
 	if err != nil {
 		t.Error(err)
@@ -267,7 +267,7 @@ func TestBinaryKey(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	_, err = c.MetaGet(ctx, MetaGetOptions{BinaryKey: k, ReturnValue: true})
+	_, err = c.MetaGet(ctx, MetaGetOptions{BinaryKey: k, GetValue: true})
 	if err != nil {
 		t.Error("Binary Key Error.", err)
 	}

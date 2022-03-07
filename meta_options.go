@@ -6,49 +6,50 @@ type casToken struct {
 }
 
 type MetaGetOptions struct {
-	ReturnCasToken   bool // return item cas token
-	ReturnFlags      bool // return client flags token
-	ReturnHit        bool // return whether item has been hit before as a 0 or 1
-	ReturnLastAccess bool // return time since item was last accessed in seconds
-	ReturnSize       bool // return item size token
-	ReturnTTL        bool // return item TTL remaining in seconds (-1 for unlimited)
-	ReturnValue      bool // return item value in <data block>
-	NoBump           bool // don't bump the item in the LRU
-
-	BinaryKey []byte // interpret key as base64 encoded binary value
 	Key       string // the key of item
+	BinaryKey []byte // interpret key as base64 encoded binary value
 
-	SetTTL         uint64 // update remaining TTL
-	NewWithTTL     uint64 // vivify on miss, takes TTL as a argument
+	GetCasToken   bool // return item cas token
+	GetFlags      bool // return client flags token
+	GetHit        bool // return whether item has been hit before as a 0 or 1
+	GetLastAccess bool // return time since item was last accessed in seconds
+	GetSize       bool // return item size token
+	GetTTL        bool // return item TTL remaining in seconds (-1 for unlimited)
+	GetValue      bool // return item value in <data block>
+
+	SetTTL           uint64 // update remaining TTL
+	SetVivifyWithTTL uint64 // vivify on miss, takes TTL as a argument
+
 	RecacheWithTTL uint64 // if token is less than remaining TTL win for recache
+	NoBump         bool   // don't bump the item in the LRU
 }
 
 func (o MetaGetOptions) marshal() (fs []metaFlag) {
-	if o.NewWithTTL != 0 {
-		fs = append(fs, withVivify(o.NewWithTTL))
+	if o.SetVivifyWithTTL != 0 {
+		fs = append(fs, withVivify(o.SetVivifyWithTTL))
 	}
 	if len(o.BinaryKey) > 0 {
 		fs = append(fs, withBinary())
 	}
-	if o.ReturnCasToken {
+	if o.GetCasToken {
 		fs = append(fs, withCAS())
 	}
-	if o.ReturnFlags {
+	if o.GetFlags {
 		fs = append(fs, withFlag())
 	}
-	if o.ReturnHit {
+	if o.GetHit {
 		fs = append(fs, withHit())
 	}
-	if o.ReturnLastAccess {
+	if o.GetLastAccess {
 		fs = append(fs, withLastAccess())
 	}
-	if o.ReturnSize {
+	if o.GetSize {
 		fs = append(fs, withSize())
 	}
-	if o.ReturnTTL {
+	if o.GetTTL {
 		fs = append(fs, withTTL())
 	}
-	if o.ReturnValue {
+	if o.GetValue {
 		fs = append(fs, withValue())
 	}
 	if o.NoBump {
@@ -75,22 +76,25 @@ const (
 )
 
 type MetaSetOptions struct {
-	CasToken       casToken    // compare and swap token
-	BinaryKey      []byte      // interpret key as base64 encoded binary value (see metaget)
-	Key            string      // the key of item
-	Value          []byte      // the value of item
-	ReturnCasToken bool        // return CAS value if successfully stored.
-	SetFlag        uint32      // set client flags to token (32 bit unsigned numeric)
-	SetInvalidate  bool        // set-to-invalid if supplied CAS is older than item's CAS
-	Mode           MetaSetMode // mode switch to change behavior to add, replace, append, prepend
-	SetTTL         uint64      // Time-To-Live for item, see "Expiration" above.
+	Key       string   // the key of item
+	BinaryKey []byte   // interpret key as base64 encoded binary value (see metaget)
+	Value     []byte   // the value of item
+	CasToken  casToken // compare and swap token
+
+	GetCasToken bool // return CAS value if successfully stored.
+
+	SetTTL        uint64 // Time-To-Live for item, see "Expiration" above.
+	SetFlag       uint32 // set client flags to token (32 bit unsigned numeric)
+	SetInvalidate bool   // set-to-invalid if supplied CAS is older than item's CAS
+
+	Mode MetaSetMode // mode switch to change behavior to add, replace, append, prepend
 }
 
 func (o MetaSetOptions) marshal() (fs []metaFlag) {
 	if len(o.BinaryKey) > 0 {
 		fs = append(fs, withBinary())
 	}
-	if o.ReturnCasToken {
+	if o.GetCasToken {
 		fs = append(fs, withCAS())
 	}
 	if o.SetFlag != 0 {
@@ -112,11 +116,12 @@ func (o MetaSetOptions) marshal() (fs []metaFlag) {
 }
 
 type MetaDeletOptions struct {
-	CasToken      casToken // compare and swap token
-	BinaryKey     []byte   // interpret key as base64 encoded binary value (see metaget)
-	Key           string   // the key of item
-	SetInvalidate bool     // mark as stale, bumps CAS.
-	SetTTL        uint64   // updates TTL, only when paired with the SetInvalidate option
+	Key       string   // the key of item
+	BinaryKey []byte   // interpret key as base64 encoded binary value (see metaget)
+	CasToken  casToken // compare and swap token
+
+	SetTTL        uint64 // updates TTL, only when paired with the SetInvalidate option
+	SetInvalidate bool   // mark as stale, bumps CAS.
 }
 
 func (o MetaDeletOptions) marshal() (fs []metaFlag) {
@@ -144,29 +149,30 @@ const (
 )
 
 type MetaArithmeticOptions struct {
-	CasToken       casToken // compare and swap token
-	BinaryKey      []byte   // interpret key as base64 encoded binary value (see metaget)
-	Key            string   // the key of item
-	ReturnCasToken bool     // return current CAS value if successful.
-	ReturnTTL      bool     // return current TTL
-	ReturnValue    bool     // return new value
+	Key       string   // the key of item
+	BinaryKey []byte   // interpret key as base64 encoded binary value (see metaget)
+	CasToken  casToken // compare and swap token
 
-	SetTTL       uint64 // update TTL on success
-	NewWithTTL   uint64 // auto create item on miss with supplied TTL
-	InitialValue uint64 // initial value to use if auto created after miss (default 0)
-	Delta        uint64 //  delta to apply (decimal unsigned 64-bit number, default 1)
+	GetCasToken bool // return current CAS value if successful.
+	GetTTL      bool // return current TTL
+	GetValue    bool // return new value
 
-	Mode MetaArithmeticMode // mode switch to change between incr and decr modes.
+	SetTTL           uint64 // update TTL on success
+	SetVivifyWithTTL uint64 // auto create item on miss with supplied TTL
+
+	InitialValue uint64             // initial value to use if auto created after miss (default 0)
+	Delta        uint64             //  delta to apply (decimal unsigned 64-bit number, default 1)
+	Mode         MetaArithmeticMode // mode switch to change between incr and decr modes.
 }
 
 func (o MetaArithmeticOptions) marshal() (fs []metaFlag) {
-	if o.NewWithTTL != 0 {
-		fs = append(fs, withVivify(o.NewWithTTL))
+	if o.SetVivifyWithTTL != 0 {
+		fs = append(fs, withVivify(o.SetVivifyWithTTL))
 	}
 	if len(o.BinaryKey) > 0 {
 		fs = append(fs, withBinary())
 	}
-	if o.ReturnCasToken {
+	if o.GetCasToken {
 		fs = append(fs, withCAS())
 	}
 	if o.Delta != 0 {
@@ -175,10 +181,10 @@ func (o MetaArithmeticOptions) marshal() (fs []metaFlag) {
 	if o.InitialValue != 0 {
 		fs = append(fs, withInitialValue(o.InitialValue))
 	}
-	if o.ReturnTTL {
+	if o.GetTTL {
 		fs = append(fs, withTTL())
 	}
-	if o.ReturnValue {
+	if o.GetValue {
 		fs = append(fs, withValue())
 	}
 	if o.Mode != MetaArithmeticModeEmpty {
