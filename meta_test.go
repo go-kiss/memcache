@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"math"
 	"os"
 	"strconv"
 	"testing"
@@ -209,9 +210,9 @@ func TestMetaArithmetic(t *testing.T) {
 
 	ctx := context.Background()
 	k := "KALLEN"
-	var iv, d, ttl uint64 = 20, 11, 20
+	var iv, d, ttl uint64 = math.Float64bits(math.Pow(2, 9)), 11, 20
 
-	item, err := c.MetaArithmetic(ctx, MetaArithmeticOptions{
+	v, item, err := c.MetaArithmetic(ctx, MetaArithmeticOptions{
 		Key:              k,
 		InitialValue:     iv,
 		SetVivifyWithTTL: ttl,
@@ -224,7 +225,10 @@ func TestMetaArithmetic(t *testing.T) {
 	if !bytes.Equal(item.Value, []byte(strconv.FormatUint(iv, 10))) {
 		t.Errorf("Initial value error. got %q should be %q", item.Value, iv)
 	}
-	item, err = c.MetaArithmetic(ctx, MetaArithmeticOptions{
+	if v != iv {
+		t.Errorf("Return Value error.")
+	}
+	v, item, err = c.MetaArithmetic(ctx, MetaArithmeticOptions{
 		Key:      k,
 		Delta:    d,
 		CasToken: item.CasToken,
@@ -236,7 +240,10 @@ func TestMetaArithmetic(t *testing.T) {
 	if !bytes.Equal(item.Value, []byte(strconv.FormatUint(iv+d, 10))) {
 		t.Errorf("Increase value error. got %q should be %q", item.Value, iv+d)
 	}
-	item, err = c.MetaArithmetic(ctx, MetaArithmeticOptions{
+	if v != iv+d {
+		t.Errorf("Return Value error.")
+	}
+	_, item, err = c.MetaArithmetic(ctx, MetaArithmeticOptions{
 		Key:      k,
 		Delta:    d,
 		CasToken: item.CasToken,

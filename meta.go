@@ -3,6 +3,7 @@ package memcache
 import (
 	"context"
 	"encoding/base64"
+	"strconv"
 )
 
 type MetaResult struct {
@@ -49,10 +50,16 @@ func (c *Client) MetaDelete(ctx context.Context, opt MetaDeletOptions) (i MetaRe
 }
 
 // Apply Arithmetic operation to one key
-func (c *Client) MetaArithmetic(ctx context.Context, opt MetaArithmeticOptions) (i MetaResult, err error) {
+func (c *Client) MetaArithmetic(ctx context.Context, opt MetaArithmeticOptions) (v uint64, i MetaResult, err error) {
 	err = c.do(ctx, func(c *Conn) error {
-		i, err = c.MetaArithmetic(stringfyKey(opt.Key, opt.BinaryKey), opt.marshal())
-		return err
+		if i, err = c.MetaArithmetic(stringfyKey(opt.Key, opt.BinaryKey), opt.marshal()); err != nil {
+			return err
+		}
+		if opt.GetValue {
+			v, err = strconv.ParseUint(string(i.Value), 10, 64)
+			return err
+		}
+		return nil
 	})
 	return
 }
