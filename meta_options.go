@@ -16,6 +16,7 @@ type MetaGetOptions struct {
 	NoBump           bool // don't bump the item in the LRU
 
 	BinaryKey []byte // interpret key as base64 encoded binary value
+	Key       string // the key of item
 
 	SetTTL         uint64 // update remaining TTL
 	NewWithTTL     uint64 // vivify on miss, takes TTL as a argument
@@ -76,6 +77,8 @@ const (
 type MetaSetOptions struct {
 	CasToken       casToken    // compare and swap token
 	BinaryKey      []byte      // interpret key as base64 encoded binary value (see metaget)
+	Key            string      // the key of item
+	Value          []byte      // the value of item
 	ReturnCasToken bool        // return CAS value if successfully stored.
 	SetFlag        uint32      // set client flags to token (32 bit unsigned numeric)
 	SetInvalidate  bool        // set-to-invalid if supplied CAS is older than item's CAS
@@ -111,6 +114,7 @@ func (o MetaSetOptions) marshal() (fs []metaFlag) {
 type MetaDeletOptions struct {
 	CasToken      casToken // compare and swap token
 	BinaryKey     []byte   // interpret key as base64 encoded binary value (see metaget)
+	Key           string   // the key of item
 	SetInvalidate bool     // mark as stale, bumps CAS.
 	SetTTL        uint64   // updates TTL, only when paired with the SetInvalidate option
 }
@@ -142,6 +146,7 @@ const (
 type MetaArithmeticOptions struct {
 	CasToken       casToken // compare and swap token
 	BinaryKey      []byte   // interpret key as base64 encoded binary value (see metaget)
+	Key            string   // the key of item
 	ReturnCasToken bool     // return current CAS value if successful.
 	ReturnTTL      bool     // return current TTL
 	ReturnValue    bool     // return new value
