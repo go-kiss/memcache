@@ -8,59 +8,58 @@ import (
 type MetaResult struct {
 	CasToken   casToken
 	Flags      uint32
-	Hit        uint32
 	Key        string
 	LastAccess uint64
 	Opaque     string
-	Size       uint64
+	Size       int
 	TTL        int64
 	Value      []byte
-	IsWon      bool
-	IsStale    bool
-	IsSentWon  bool
+	Hit        bool
+	Won        bool
+	Stale      bool
 
 	isNoOp bool
 }
 
 // Get get one key
-func (c *Client) MetaGet(ctx context.Context, key []byte, opt MetaGetOptions) (i MetaResult, err error) {
+func (c *Client) MetaGet(ctx context.Context, key string, opt MetaGetOptions) (i MetaResult, err error) {
 	err = c.do(ctx, func(c *Conn) error {
-		i, err = c.MetaGet(stringfyKey(key, opt.BinaryKey), marshalMGOptions(opt))
+		i, err = c.MetaGet(stringfyKey(key, opt.BinaryKey), opt.marshal())
 		return err
 	})
 	return
 }
 
 // Set set one key
-func (c *Client) MetaSet(ctx context.Context, key []byte, value []byte, opt MetaSetOptions) (i MetaResult, err error) {
+func (c *Client) MetaSet(ctx context.Context, key string, value []byte, opt MetaSetOptions) (i MetaResult, err error) {
 	err = c.do(ctx, func(c *Conn) error {
-		i, err = c.MetaSet(stringfyKey(key, opt.BinaryKey), value, marshalMSOptions(opt))
+		i, err = c.MetaSet(stringfyKey(key, opt.BinaryKey), value, opt.marshal())
 		return err
 	})
 	return
 }
 
 // Delete one key
-func (c *Client) MetaDelete(ctx context.Context, key []byte, opt MetaDeletOptions) (i MetaResult, err error) {
+func (c *Client) MetaDelete(ctx context.Context, key string, opt MetaDeletOptions) (i MetaResult, err error) {
 	err = c.do(ctx, func(c *Conn) error {
-		i, err = c.MetaDelete(stringfyKey(key, opt.BinaryKey), marshalMDOptions(opt))
+		i, err = c.MetaDelete(stringfyKey(key, opt.BinaryKey), opt.marshal())
 		return err
 	})
 	return
 }
 
 // Apply Arithmetic operation to one key
-func (c *Client) MetaArithmetic(ctx context.Context, key []byte, opt MetaArithmeticOptions) (i MetaResult, err error) {
+func (c *Client) MetaArithmetic(ctx context.Context, key string, opt MetaArithmeticOptions) (i MetaResult, err error) {
 	err = c.do(ctx, func(c *Conn) error {
-		i, err = c.MetaArithmetic(stringfyKey(key, opt.BinaryKey), marshalMAOptions(opt))
+		i, err = c.MetaArithmetic(stringfyKey(key, opt.BinaryKey), opt.marshal())
 		return err
 	})
 	return
 }
 
-func stringfyKey(k []byte, useBase64 bool) string {
-	if !useBase64 {
-		return string(k)
+func stringfyKey(key string, binaryKey []byte) string {
+	if len(binaryKey) > 0 {
+		return base64.StdEncoding.EncodeToString(binaryKey)
 	}
-	return base64.StdEncoding.EncodeToString(k)
+	return key
 }

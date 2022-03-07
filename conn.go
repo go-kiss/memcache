@@ -112,7 +112,7 @@ func (c *Conn) Get(key string) (*Item, error) {
 // The meta get command is the generic command for retrieving key data from
 // memcached. Based on the flags supplied, it can replace all of the commands:
 // "get", "gets", "gat", "gats", "touch", as well as adding new options.
-func (c *Conn) MetaGet(key string, flags []metaFlager) (mr MetaResult, err error) {
+func (c *Conn) MetaGet(key string, flags []metaFlag) (mr MetaResult, err error) {
 	if _, err = fmt.Fprintf(c.rw, "mg %s %s\r\n", key, buildMetaFlags(flags)); err != nil {
 		return
 	}
@@ -191,7 +191,7 @@ func (c *Conn) Set(item *Item) error {
 // The meta set command a generic command for storing data to memcached. Based
 // on the flags supplied, it can replace all storage commands (see token M) as
 // well as adds new options.
-func (c *Conn) MetaSet(key string, data []byte, flags []metaFlager) (mr MetaResult, err error) {
+func (c *Conn) MetaSet(key string, data []byte, flags []metaFlag) (mr MetaResult, err error) {
 	if !legalKey(key) {
 		err = ErrMalformedKey
 		return
@@ -321,7 +321,7 @@ func (c *Conn) Delete(key string) error {
 
 // The meta delete command allows for explicit deletion of items, as well as
 // marking items as "stale" to allow serving items as stale during revalidation.
-func (c *Conn) MetaDelete(key string, flags []metaFlager) (mr MetaResult, err error) {
+func (c *Conn) MetaDelete(key string, flags []metaFlag) (mr MetaResult, err error) {
 	if !legalKey(key) {
 		err = ErrMalformedKey
 		return
@@ -359,7 +359,7 @@ func (c *Conn) Decrement(key string, delta uint64) (newValue uint64, err error) 
 // values. This replaces the "incr" and "decr" commands. Values are unsigned
 // 64bit integers. Decrementing will reach 0 rather than underflow. Incrementing
 // can overflow.
-func (c *Conn) MetaArithmetic(key string, flags []metaFlager) (mr MetaResult, err error) {
+func (c *Conn) MetaArithmetic(key string, flags []metaFlag) (mr MetaResult, err error) {
 	if !legalKey(key) {
 		err = ErrMalformedKey
 		return
@@ -466,10 +466,8 @@ func parseMetaResponse(r *bufio.Reader) (mr MetaResult, err error) {
 		return
 	}
 	if withValue {
-		s := size + len(crlf)
-		mr.Value = make([]byte, s)
-		_, err = io.ReadFull(r, mr.Value)
-		if err != nil {
+		mr.Value = make([]byte, size+len(crlf))
+		if _, err = io.ReadFull(r, mr.Value); err != nil {
 			return
 		}
 		mr.Value = mr.Value[:size]
