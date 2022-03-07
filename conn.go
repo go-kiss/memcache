@@ -113,6 +113,10 @@ func (c *Conn) Get(key string) (*Item, error) {
 // memcached. Based on the flags supplied, it can replace all of the commands:
 // "get", "gets", "gat", "gats", "touch", as well as adding new options.
 func (c *Conn) MetaGet(key string, flags []metaFlag) (mr MetaResult, err error) {
+	if !legalKey(key) {
+		err = ErrMalformedKey
+		return
+	}
 	if _, err = fmt.Fprintf(c.rw, "mg %s %s\r\n", key, buildMetaFlags(flags)); err != nil {
 		return
 	}
@@ -424,7 +428,7 @@ func IsResumableErr(err error) bool {
 }
 
 func legalKey(key string) bool {
-	if len(key) > 250 {
+	if l := len(key); l > 250 || l == 0 {
 		return false
 	}
 	for i := 0; i < len(key); i++ {
