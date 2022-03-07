@@ -22,37 +22,48 @@ type MetaResult struct {
 	isNoOp bool
 }
 
-// Get get one key
+// The meta get command is the generic command for retrieving key data from
+// memcached. Based on the flags supplied, it can replace all of the commands:
+// "get", "gets", "gat", "gats", "touch", as well as adding new options.
 func (c *Client) MetaGet(ctx context.Context, opt MetaGetOptions) (i MetaResult, err error) {
 	err = c.do(ctx, func(c *Conn) error {
-		i, err = c.MetaGet(stringfyKey(opt.Key, opt.BinaryKey), opt.marshal())
+		i, err = c.metaCmd("mg", stringfyKey(opt.Key, opt.BinaryKey), opt.marshal(), nil)
 		return err
 	})
 	return
 }
 
-// Set set one key
+// The meta set command a generic command for storing data to memcached. Based
+// on the flags supplied, it can replace all storage commands (see token M) as
+// well as adds new options.
 func (c *Client) MetaSet(ctx context.Context, opt MetaSetOptions) (i MetaResult, err error) {
+	if opt.Value == nil {
+		opt.Value = []byte{}
+	}
 	err = c.do(ctx, func(c *Conn) error {
-		i, err = c.MetaSet(stringfyKey(opt.Key, opt.BinaryKey), opt.Value, opt.marshal())
+		i, err = c.metaCmd("ms", stringfyKey(opt.Key, opt.BinaryKey), opt.marshal(), opt.Value)
 		return err
 	})
 	return
 }
 
-// Delete one key
+// The meta delete command allows for explicit deletion of items, as well as
+// marking items as "stale" to allow serving items as stale during revalidation.
 func (c *Client) MetaDelete(ctx context.Context, opt MetaDeletOptions) (i MetaResult, err error) {
 	err = c.do(ctx, func(c *Conn) error {
-		i, err = c.MetaDelete(stringfyKey(opt.Key, opt.BinaryKey), opt.marshal())
+		i, err = c.metaCmd("md", stringfyKey(opt.Key, opt.BinaryKey), opt.marshal(), nil)
 		return err
 	})
 	return
 }
 
-// Apply Arithmetic operation to one key
+// The meta arithmetic command allows for basic operations against numerical
+// values. This replaces the "incr" and "decr" commands. Values are unsigned
+// 64bit integers. Decrementing will reach 0 rather than underflow. Incrementing
+// can overflow.
 func (c *Client) MetaArithmetic(ctx context.Context, opt MetaArithmeticOptions) (v uint64, i MetaResult, err error) {
 	err = c.do(ctx, func(c *Conn) error {
-		if i, err = c.MetaArithmetic(stringfyKey(opt.Key, opt.BinaryKey), opt.marshal()); err != nil {
+		if i, err = c.metaCmd("ma", stringfyKey(opt.Key, opt.BinaryKey), opt.marshal(), nil); err != nil {
 			return err
 		}
 		if opt.GetValue {
