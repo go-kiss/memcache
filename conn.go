@@ -348,8 +348,37 @@ func IsResumableErr(err error) bool {
 	return false
 }
 
+func (c *Conn) metaCmd(cmd, key string, flags []metaFlag, data []byte) (mr MetaResult, err error) {
+	if !legalKey(key) {
+		err = ErrMalformedKey
+		return
+	}
+	withPayload := data != nil
+	if withPayload {
+		_, err = fmt.Fprintf(c.rw, "%s %s %d %s\r\n", cmd, key, len(data), buildMetaFlags(flags))
+	} else {
+		_, err = fmt.Fprintf(c.rw, "%s %s %s\r\n", cmd, key, buildMetaFlags(flags))
+	}
+	if err != nil {
+		return
+	}
+	if withPayload {
+		if _, err = c.rw.Write(data); err != nil {
+			return
+		}
+		if _, err = c.rw.Write(crlf); err != nil {
+			return
+		}
+	}
+	if err = c.rw.Flush(); err != nil {
+		return
+	}
+	mr, err = parseMetaResponse(c.rw.Reader)
+	return
+}
+
 func legalKey(key string) bool {
-	if len(key) > 250 {
+	if l := len(key); l > 250 || l == 0 {
 		return false
 	}
 	for i := 0; i < len(key); i++ {
@@ -358,4 +387,44 @@ func legalKey(key string) bool {
 		}
 	}
 	return true
+}
+
+func parseMetaResponse(r *bufio.Reader) (mr MetaResult, err error) {
+	statusLineRaw, err := r.ReadSlice('\n')
+	if err != nil {
+		return
+	}
+
+	status := strings.Fields(string(statusLineRaw))
+	code, size, withValue, status := status[0], 0, false, status[1:]
+	switch code {
+	case "MN":
+		mr.isNoOp = true
+	case "VA":
+		size, err = strconv.Atoi(status[0])
+		status, withValue = status[1:], true
+	case "NS":
+		err = ErrNotStored
+	case "EX":
+		err = ErrCASConflict
+	case "EN", "NF":
+		err = ErrCacheMiss
+	case "HD":
+	default:
+		err = fmt.Errorf("memcache: unexpected line in response: %q", statusLineRaw)
+	}
+	if mr.isNoOp || err != nil {
+		return
+	}
+	if mr, err = obtainMetaFlagsResults(status); err != nil {
+		return
+	}
+	if withValue {
+		mr.Value = make([]byte, size+len(crlf))
+		if _, err = io.ReadFull(r, mr.Value); err != nil {
+			return
+		}
+		mr.Value = mr.Value[:size]
+	}
+	return
 }
