@@ -30,7 +30,7 @@ func TestMetaSetGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if sr.CasToken.value == 0 {
+	if int(sr.CasToken) == 0 {
 		t.Error("CAS Incorrect")
 	}
 
@@ -127,7 +127,7 @@ func TestMetaSetCAS(t *testing.T) {
 	_, err = c.MetaSet(ctx, MetaSetOptions{
 		Key:      k,
 		Value:    v,
-		CasToken: casToken{0, true},
+		CasToken: casToken(0),
 	})
 	if err != ErrCASConflict {
 		t.Error("CAS Invalid")
@@ -278,4 +278,31 @@ func TestBinaryKey(t *testing.T) {
 	if err != nil {
 		t.Error("Binary Key Error.", err)
 	}
+}
+
+func TestMetaCasMiss(t *testing.T) {
+	c, _ := New(os.Getenv("MC_ADDRESS"), 2, 100)
+
+	ctx := context.Background()
+	k := "MEI"
+	var ttl uint64 = 20
+
+	item, err := c.MetaGet(ctx, MetaGetOptions{
+		Key:              k,
+		SetVivifyWithTTL: ttl,
+		GetValue:         true,
+	})
+	if err != nil {
+		t.Error(err)
+	}
+
+	item, err = c.MetaSet(ctx, MetaSetOptions{
+		Key:      k,
+		CasToken: item.CasToken,
+		Value:    []byte("t"),
+	})
+	if err != ErrCASConflict {
+		t.Errorf("CAS Error")
+	}
+
 }

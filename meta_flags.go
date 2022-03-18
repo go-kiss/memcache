@@ -13,11 +13,6 @@ func buildMetaFlags(fs []metaFlag) string {
 }
 
 func obtainMetaFlagsResults(ss []string) (mr MetaResult, err error) {
-	// Always set the cas token as setted
-	// enforce the operation use this token always use the CasToken.value
-	// even if the token is not returned.
-	// To avoid unexpected non-cas opertion caused by the lack of "c" flag.
-	mr.CasToken.setted = true
 	for _, f := range ss {
 		k, v := f[0], f[1:]
 		switch k {
@@ -32,7 +27,9 @@ func obtainMetaFlagsResults(ss []string) (mr MetaResult, err error) {
 		case 'O':
 			mr.Opaque = v
 		case 'c':
-			mr.CasToken.value, err = strconv.ParseInt(v, 10, 64)
+			var cv int64
+			cv, err = strconv.ParseInt(v, 10, 64)
+			mr.CasToken = casToken(cv)
 		case 'f':
 			v, err := strconv.ParseUint(v, 10, 32)
 			if err != nil {

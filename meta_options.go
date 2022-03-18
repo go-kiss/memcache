@@ -1,8 +1,13 @@
 package memcache
 
-type casToken struct {
-	value  int64
-	setted bool
+type CasToken interface {
+	value() int64
+}
+
+type casToken int64
+
+func (c casToken) value() int64 {
+	return int64(c)
 }
 
 type MetaGetOptions struct {
@@ -79,7 +84,7 @@ type MetaSetOptions struct {
 	Key       string   // the key of item
 	BinaryKey []byte   // interpret key as base64 encoded binary value (see metaget)
 	Value     []byte   // the value of item
-	CasToken  casToken // compare and swap token
+	CasToken  CasToken // compare and swap token
 
 	GetCasToken bool // return CAS value if successfully stored.
 
@@ -109,8 +114,8 @@ func (o MetaSetOptions) marshal() (fs []metaFlag) {
 	if o.SetTTL != 0 {
 		fs = append(fs, withSetTTL(o.SetTTL))
 	}
-	if o.CasToken.setted {
-		fs = append(fs, withCompareCAS(o.CasToken.value))
+	if o.CasToken != nil {
+		fs = append(fs, withCompareCAS(o.CasToken.value()))
 	}
 	return
 }
@@ -118,7 +123,7 @@ func (o MetaSetOptions) marshal() (fs []metaFlag) {
 type MetaDeletOptions struct {
 	Key       string   // the key of item
 	BinaryKey []byte   // interpret key as base64 encoded binary value (see metaget)
-	CasToken  casToken // compare and swap token
+	CasToken  CasToken // compare and swap token
 
 	SetTTL        uint64 // updates TTL, only when paired with the SetInvalidate option
 	SetInvalidate bool   // mark as stale, bumps CAS.
@@ -134,8 +139,8 @@ func (o MetaDeletOptions) marshal() (fs []metaFlag) {
 	if o.SetTTL != 0 {
 		fs = append(fs, withSetTTL(o.SetTTL))
 	}
-	if o.CasToken.setted {
-		fs = append(fs, withCompareCAS(o.CasToken.value))
+	if o.CasToken != nil {
+		fs = append(fs, withCompareCAS(o.CasToken.value()))
 	}
 	return
 }
@@ -151,7 +156,7 @@ const (
 type MetaArithmeticOptions struct {
 	Key       string   // the key of item
 	BinaryKey []byte   // interpret key as base64 encoded binary value (see metaget)
-	CasToken  casToken // compare and swap token
+	CasToken  CasToken // compare and swap token
 
 	GetCasToken bool // return current CAS value if successful.
 	GetTTL      bool // return current TTL
@@ -193,8 +198,8 @@ func (o MetaArithmeticOptions) marshal() (fs []metaFlag) {
 	if o.SetTTL != 0 {
 		fs = append(fs, withSetTTL(o.SetTTL))
 	}
-	if o.CasToken.setted {
-		fs = append(fs, withCompareCAS(o.CasToken.value))
+	if o.CasToken != nil {
+		fs = append(fs, withCompareCAS(o.CasToken.value()))
 	}
 	return
 }
